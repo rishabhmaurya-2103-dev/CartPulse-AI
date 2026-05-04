@@ -1,0 +1,1117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CartSense — Cart Abandonment Intelligence</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,300&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root {
+  --bg: #080810;
+  --surface: #0f0f1a;
+  --card: #13131f;
+  --card2: #1a1a28;
+  --border: #252535;
+  --border2: #1e1e2e;
+  --accent: #f43f5e;
+  --accent2: #8b5cf6;
+  --accent3: #06b6d4;
+  --accent4: #10b981;
+  --text: #e8e8f4;
+  --text2: #a0a0c0;
+  --muted: #606080;
+  --safe: #10b981;
+  --warn: #f59e0b;
+  --danger: #ef4444;
+  --glow-r: rgba(244,63,94,0.18);
+  --glow-p: rgba(139,92,246,0.18);
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 15px;
+  line-height: 1.5;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+body::before {
+  content: '';
+  position: fixed; inset: 0; pointer-events: none; z-index: 0;
+  background:
+    radial-gradient(ellipse 70% 50% at 5% 10%, rgba(139,92,246,.07) 0%, transparent 60%),
+    radial-gradient(ellipse 50% 60% at 95% 90%, rgba(244,63,94,.06) 0%, transparent 60%),
+    radial-gradient(ellipse 40% 40% at 50% 50%, rgba(6,182,212,.03) 0%, transparent 60%);
+}
+
+/* ── SCROLLBAR ── */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: var(--surface); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+/* ── NAV ── */
+nav {
+  position: sticky; top: 0; z-index: 200;
+  height: 56px;
+  background: rgba(8,8,16,0.88);
+  backdrop-filter: blur(24px) saturate(180%);
+  border-bottom: 1px solid var(--border2);
+  display: flex; align-items: center;
+  padding: 0 2rem; gap: 2rem;
+}
+.logo {
+  font-family: 'Syne', sans-serif; font-weight: 800; font-size: 1rem;
+  display: flex; align-items: center; gap: 0.5rem;
+  color: var(--text); text-decoration: none; margin-right: auto;
+}
+.logo-icon {
+  width: 28px; height: 28px; border-radius: 7px;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.85rem;
+}
+.logo span { color: var(--accent); }
+.live-badge {
+  display: flex; align-items: center; gap: 0.4rem;
+  padding: 0.2rem 0.6rem; border-radius: 20px;
+  background: rgba(16,185,129,.12); border: 1px solid rgba(16,185,129,.25);
+  font-family: 'DM Mono', monospace; font-size: 0.65rem; color: var(--safe);
+  letter-spacing: 0.08em;
+}
+.live-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--safe); animation: blink 1.4s infinite; }
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:.3} }
+
+.nav-links { display: flex; gap: 0; }
+.nav-link {
+  padding: 0 1rem; height: 56px; display: flex; align-items: center;
+  font-family: 'DM Mono', monospace; font-size: 0.72rem;
+  color: var(--muted); cursor: pointer; border: none; background: none;
+  border-bottom: 2px solid transparent; transition: all .2s;
+  text-transform: uppercase; letter-spacing: 0.08em;
+}
+.nav-link:hover { color: var(--text2); }
+.nav-link.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+/* ── PAGES ── */
+.page { display: none; position: relative; z-index: 1; }
+.page.active { display: block; animation: fadeUp .35s cubic-bezier(.4,0,.2,1); }
+@keyframes fadeUp { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
+
+.container { max-width: 1160px; margin: 0 auto; padding: 2rem 1.5rem; }
+
+/* ── TYPOGRAPHY ── */
+h1, h2, h3 { font-family: 'Syne', sans-serif; }
+h1 { font-size: clamp(2rem,5vw,3.4rem); font-weight: 800; line-height: 1.06; }
+h2 { font-size: 1.5rem; font-weight: 700; }
+h3 { font-size: 1rem; font-weight: 600; }
+em.accent { font-style: normal; color: var(--accent); }
+em.blue { font-style: normal; color: var(--accent3); }
+
+/* ── CARDS ── */
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 1.5rem;
+}
+.card-header {
+  display: flex; align-items: center; gap: 0.6rem;
+  margin-bottom: 1.2rem; padding-bottom: 1rem;
+  border-bottom: 1px solid var(--border2);
+}
+.card-icon {
+  width: 32px; height: 32px; border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.9rem; flex-shrink: 0;
+}
+.ci-red { background: rgba(244,63,94,.15); }
+.ci-purple { background: rgba(139,92,246,.15); }
+.ci-cyan { background: rgba(6,182,212,.15); }
+.ci-green { background: rgba(16,185,129,.15); }
+
+/* ── DASHBOARD ─────────────────────────────────────────────────────────────── */
+.hero-strip {
+  padding: 2.5rem 0 1.5rem;
+  display: flex; align-items: flex-end; justify-content: space-between; gap: 2rem;
+}
+.hero-label {
+  font-family: 'DM Mono', monospace; font-size: 0.7rem;
+  color: var(--accent); letter-spacing: 0.12em; text-transform: uppercase;
+  margin-bottom: 0.6rem;
+}
+.hero-sub { color: var(--text2); font-size: 0.92rem; max-width: 420px; margin-top: 0.6rem; }
+.model-pill {
+  padding: 0.4rem 0.9rem; border-radius: 20px;
+  border: 1px solid var(--border);
+  font-family: 'DM Mono', monospace; font-size: 0.68rem; color: var(--text2);
+  background: var(--card); white-space: nowrap;
+}
+.model-pill strong { color: var(--accent2); }
+
+.kpi-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-bottom: 1.5rem; }
+.kpi {
+  background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+  padding: 1.2rem 1.3rem; position: relative; overflow: hidden;
+  transition: border-color .2s;
+}
+.kpi:hover { border-color: var(--border); }
+.kpi::after {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+}
+.kpi.kp-r::after { background: linear-gradient(90deg, var(--accent), transparent); }
+.kpi.kp-p::after { background: linear-gradient(90deg, var(--accent2), transparent); }
+.kpi.kp-c::after { background: linear-gradient(90deg, var(--accent3), transparent); }
+.kpi.kp-g::after { background: linear-gradient(90deg, var(--safe), transparent); }
+.kpi-label {
+  font-family: 'DM Mono', monospace; font-size: 0.65rem;
+  color: var(--muted); text-transform: uppercase; letter-spacing: 0.1em;
+  margin-bottom: 0.45rem;
+}
+.kpi-val {
+  font-family: 'Syne', sans-serif; font-size: 2rem; font-weight: 700;
+  line-height: 1;
+}
+.kpi-sub { font-size: 0.72rem; color: var(--text2); margin-top: 0.3rem; }
+.up { color: var(--safe); } .dn { color: var(--danger); }
+
+.dash-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.2rem; margin-bottom: 1.2rem; }
+.dash-grid.three { grid-template-columns: 2fr 1fr; }
+
+canvas { display: block; }
+.chart-wrap { position: relative; width: 100%; }
+
+/* ── PREDICT PAGE ── */
+.predict-layout { display: grid; grid-template-columns: 1fr 340px; gap: 1.5rem; align-items: start; }
+.section-tag {
+  font-family: 'DM Mono', monospace; font-size: 0.68rem;
+  color: var(--muted); text-transform: uppercase; letter-spacing: 0.1em;
+  margin-bottom: 0.5rem;
+}
+.field-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.9rem; }
+.field-grid.three { grid-template-columns: 1fr 1fr 1fr; }
+.field { display: flex; flex-direction: column; gap: 0.35rem; }
+.field label {
+  font-family: 'DM Mono', monospace; font-size: 0.67rem;
+  color: var(--text2); text-transform: uppercase; letter-spacing: 0.08em;
+}
+.field input, .field select {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 8px; padding: 0.58rem 0.75rem;
+  color: var(--text); font-family: 'DM Sans', sans-serif; font-size: 0.88rem;
+  outline: none; width: 100%; transition: border-color .2s, box-shadow .2s;
+  appearance: none;
+}
+.field input:focus, .field select:focus {
+  border-color: var(--accent2);
+  box-shadow: 0 0 0 3px rgba(139,92,246,.12);
+}
+.field select { cursor: pointer; }
+.field select option { background: #1a1a28; }
+
+.divider { height: 1px; background: var(--border2); margin: 1.2rem 0; }
+
+.btn-predict {
+  width: 100%; padding: 0.82rem;
+  background: linear-gradient(135deg, var(--accent) 0%, var(--accent2) 100%);
+  border: none; border-radius: 10px; color: #fff;
+  font-family: 'Syne', sans-serif; font-weight: 700; font-size: 0.92rem;
+  cursor: pointer; transition: opacity .2s, transform .15s, box-shadow .2s;
+  letter-spacing: 0.02em; margin-top: 1.2rem;
+  box-shadow: 0 4px 24px rgba(244,63,94,.2);
+}
+.btn-predict:hover { opacity: .88; transform: translateY(-1px); box-shadow: 0 6px 30px rgba(244,63,94,.3); }
+.btn-predict:active { transform: translateY(0); }
+.btn-predict:disabled { opacity: .5; cursor: not-allowed; transform: none; }
+
+/* Result panel */
+.result-panel {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 14px; padding: 1.5rem;
+  position: sticky; top: 70px;
+}
+.result-placeholder {
+  text-align: center; padding: 2rem 1rem; color: var(--muted);
+}
+.result-placeholder .big-icon { font-size: 2.5rem; margin-bottom: 0.8rem; opacity: .4; }
+.result-placeholder p { font-size: 0.82rem; line-height: 1.6; }
+
+.result-verdict {
+  text-align: center; padding: 1.5rem 1rem 1rem;
+  border-radius: 10px; margin-bottom: 1.2rem;
+}
+.verdict-icon { font-size: 2.8rem; margin-bottom: 0.4rem; }
+.verdict-label {
+  font-family: 'Syne', sans-serif; font-size: 1.35rem; font-weight: 800;
+}
+.verdict-sub { font-size: 0.78rem; color: var(--text2); margin-top: 0.25rem; }
+.result-verdict.abandoned { background: rgba(244,63,94,.08); border: 1px solid rgba(244,63,94,.2); }
+.result-verdict.purchased { background: rgba(16,185,129,.08); border: 1px solid rgba(16,185,129,.2); }
+
+.prob-row {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 0.8rem;
+  margin-bottom: 1.2rem;
+}
+.prob-box {
+  background: var(--surface); border-radius: 9px; padding: 0.9rem;
+  text-align: center; border: 1px solid var(--border2);
+}
+.prob-box .prob-pct {
+  font-family: 'Syne', sans-serif; font-size: 1.7rem; font-weight: 700;
+}
+.prob-box .prob-lab { font-size: 0.7rem; color: var(--text2); margin-top: 0.15rem; }
+.prob-bar { height: 6px; border-radius: 3px; background: var(--border2); margin-bottom: 1rem; overflow: hidden; }
+.prob-bar-fill { height: 100%; border-radius: 3px; transition: width .6s cubic-bezier(.4,0,.2,1); }
+
+.risk-chip {
+  display: inline-flex; align-items: center; gap: 0.4rem;
+  padding: 0.3rem 0.75rem; border-radius: 20px;
+  font-family: 'DM Mono', monospace; font-size: 0.7rem; font-weight: 500;
+  letter-spacing: 0.08em; margin-bottom: 1.2rem;
+}
+.risk-HIGH { background: rgba(239,68,68,.12); border: 1px solid rgba(239,68,68,.3); color: #ef4444; }
+.risk-MEDIUM { background: rgba(245,158,11,.12); border: 1px solid rgba(245,158,11,.3); color: #f59e0b; }
+.risk-LOW { background: rgba(16,185,129,.12); border: 1px solid rgba(16,185,129,.3); color: #10b981; }
+
+.detail-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 0.45rem 0; border-bottom: 1px solid var(--border2);
+  font-size: 0.82rem;
+}
+.detail-row:last-child { border-bottom: none; }
+.detail-row .dk { color: var(--muted); font-family: 'DM Mono', monospace; font-size: 0.72rem; }
+.detail-row .dv { color: var(--text); font-weight: 500; }
+
+/* Price sensitivity chart area */
+.sensitivity-section { margin-top: 1.3rem; padding-top: 1.2rem; border-top: 1px solid var(--border2); }
+.sensitivity-title { font-size: 0.72rem; font-family: 'DM Mono', monospace; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 0.8rem; }
+
+/* ── HISTORY PAGE ── */
+.history-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem; }
+.btn-clear {
+  padding: 0.4rem 0.85rem; border-radius: 7px;
+  border: 1px solid var(--border); background: transparent;
+  color: var(--text2); font-size: 0.78rem; cursor: pointer;
+  transition: all .2s; font-family: 'DM Mono', monospace;
+}
+.btn-clear:hover { background: rgba(244,63,94,.1); border-color: var(--accent); color: var(--accent); }
+
+.history-stats { display: grid; grid-template-columns: repeat(3,1fr); gap: 1rem; margin-bottom: 1.5rem; }
+.hist-stat {
+  background: var(--card); border: 1px solid var(--border); border-radius: 11px;
+  padding: 1rem 1.2rem; text-align: center;
+}
+.hist-stat .hv { font-family: 'Syne', sans-serif; font-size: 1.8rem; font-weight: 700; }
+.hist-stat .hl { font-size: 0.72rem; color: var(--muted); margin-top: 0.2rem; }
+
+.history-charts { display: grid; grid-template-columns: 1fr 1fr; gap: 1.2rem; margin-bottom: 1.5rem; }
+
+.history-table-wrap { background: var(--card); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; }
+.history-table-head {
+  display: grid; grid-template-columns: 80px 1fr 1fr 110px 100px 90px;
+  gap: 0; padding: 0.75rem 1.2rem;
+  background: var(--surface); border-bottom: 1px solid var(--border);
+  font-family: 'DM Mono', monospace; font-size: 0.65rem; color: var(--muted);
+  text-transform: uppercase; letter-spacing: 0.08em;
+}
+.history-rows { max-height: 420px; overflow-y: auto; }
+.history-row {
+  display: grid; grid-template-columns: 80px 1fr 1fr 110px 100px 90px;
+  gap: 0; padding: 0.7rem 1.2rem;
+  border-bottom: 1px solid var(--border2); font-size: 0.82rem;
+  transition: background .15s; align-items: center;
+}
+.history-row:hover { background: var(--card2); }
+.history-row:last-child { border-bottom: none; }
+.h-time { font-family: 'DM Mono', monospace; font-size: 0.72rem; color: var(--muted); }
+.h-brand { font-weight: 500; }
+.h-cat { color: var(--text2); font-size: 0.78rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.h-price { font-family: 'DM Mono', monospace; }
+.h-prob { font-family: 'DM Mono', monospace; font-weight: 500; }
+.badge {
+  display: inline-flex; align-items: center; justify-content: center;
+  padding: 0.18rem 0.6rem; border-radius: 20px;
+  font-family: 'DM Mono', monospace; font-size: 0.66rem; font-weight: 500;
+  letter-spacing: 0.06em;
+}
+.badge-danger { background: rgba(239,68,68,.12); color: #ef4444; border: 1px solid rgba(239,68,68,.25); }
+.badge-safe   { background: rgba(16,185,129,.12); color: #10b981; border: 1px solid rgba(16,185,129,.25); }
+.empty-history {
+  text-align: center; padding: 3rem 1rem; color: var(--muted);
+  font-size: 0.85rem;
+}
+
+/* ── ABOUT PAGE ── */
+.about-hero { padding: 3rem 0 2rem; }
+.about-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 1.5rem; }
+.feature-card {
+  background: var(--card); border: 1px solid var(--border); border-radius: 14px;
+  padding: 1.5rem; transition: border-color .2s;
+}
+.feature-card:hover { border-color: var(--border); }
+.feature-card .fc-icon { font-size: 1.6rem; margin-bottom: 0.8rem; }
+.feature-card h3 { font-size: 1rem; font-weight: 700; margin-bottom: 0.45rem; }
+.feature-card p { font-size: 0.84rem; color: var(--text2); line-height: 1.65; }
+
+.pipeline-row { display: flex; align-items: center; gap: 0; margin: 2rem 0; }
+.pipeline-step {
+  flex: 1; background: var(--card); border: 1px solid var(--border);
+  border-radius: 10px; padding: 1rem; text-align: center;
+  font-size: 0.78rem; color: var(--text2);
+}
+.pipeline-step .ps-num {
+  font-family: 'Syne', sans-serif; font-size: 1.3rem; font-weight: 800;
+  color: var(--accent2); margin-bottom: 0.3rem;
+}
+.pipeline-arrow { color: var(--muted); font-size: 1.2rem; padding: 0 0.5rem; flex-shrink: 0; }
+
+.feat-importance-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
+.fi-row {
+  display: flex; align-items: center; gap: 0.7rem;
+  padding: 0.55rem 0.8rem; background: var(--surface); border-radius: 7px;
+}
+.fi-name { font-family: 'DM Mono', monospace; font-size: 0.72rem; color: var(--text2); flex: 1; }
+.fi-bar-wrap { flex: 2; height: 5px; background: var(--border); border-radius: 3px; overflow: hidden; }
+.fi-bar { height: 100%; border-radius: 3px; background: linear-gradient(90deg, var(--accent2), var(--accent)); }
+.fi-pct { font-family: 'DM Mono', monospace; font-size: 0.68rem; color: var(--muted); width: 36px; text-align: right; }
+
+/* ── LOADING SPINNER ── */
+.spinner {
+  display: inline-block; width: 16px; height: 16px;
+  border: 2px solid rgba(255,255,255,.3); border-top-color: #fff;
+  border-radius: 50%; animation: spin .6s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── TOAST ── */
+.toast {
+  position: fixed; bottom: 1.5rem; right: 1.5rem; z-index: 500;
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 10px; padding: 0.75rem 1.1rem;
+  font-size: 0.82rem; box-shadow: 0 8px 32px rgba(0,0,0,.4);
+  animation: slideIn .25s ease;
+  display: flex; align-items: center; gap: 0.5rem;
+}
+@keyframes slideIn { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <div class="logo">
+    <div class="logo-icon">🛒</div>
+    Cart<span>Sense</span>
+  </div>
+  <div class="live-badge"><div class="live-dot"></div>RF MODEL LIVE</div>
+  <div class="nav-links">
+    <button class="nav-link active" onclick="showPage('dashboard')">Dashboard</button>
+    <button class="nav-link" onclick="showPage('predict')">Predict</button>
+    <button class="nav-link" onclick="showPage('history')">History</button>
+    <button class="nav-link" onclick="showPage('about')">About</button>
+  </div>
+</nav>
+
+<!-- ═══════════════════════════════════════════ DASHBOARD ═══ -->
+<div class="page active" id="page-dashboard">
+<div class="container">
+
+  <div class="hero-strip">
+    <div>
+      <div class="hero-label">◈ Cart Abandonment Intelligence</div>
+      <h1>Predict who <em class="accent">leaves</em><br>before they do.</h1>
+      <div class="hero-sub">Real-time predictions powered by a Random Forest model trained on 1M+ e-commerce events from a multi-category store.</div>
+    </div>
+    <div>
+      <div class="model-pill">Model: <strong>RandomForestClassifier</strong> · 100 estimators · depth 12</div>
+    </div>
+  </div>
+
+  <!-- KPI row -->
+  <div class="kpi-row">
+    <div class="kpi kp-r">
+      <div class="kpi-label">Model Accuracy</div>
+      <div class="kpi-val">79.4<span style="font-size:1.1rem">%</span></div>
+      <div class="kpi-sub"><span class="up">↑ ROC-AUC 0.871</span></div>
+    </div>
+    <div class="kpi kp-p">
+      <div class="kpi-label">Training Samples</div>
+      <div class="kpi-val">11<span style="font-size:1.1rem">k</span></div>
+      <div class="kpi-sub">from 1M raw events (Nov 2019)</div>
+    </div>
+    <div class="kpi kp-c">
+      <div class="kpi-label">Features Used</div>
+      <div class="kpi-val">10</div>
+      <div class="kpi-sub">price · session · brand · category</div>
+    </div>
+    <div class="kpi kp-g">
+      <div class="kpi-label">Predictions Made</div>
+      <div class="kpi-val" id="total-preds">0</div>
+      <div class="kpi-sub">this session</div>
+    </div>
+  </div>
+
+  <div class="dash-grid">
+    <!-- Feature Importance Chart -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon ci-purple">📊</div>
+        <div>
+          <h3>Feature Importance</h3>
+          <div style="font-size:.75rem;color:var(--muted)">What drives cart abandonment</div>
+        </div>
+      </div>
+      <div class="chart-wrap" style="height:220px"><canvas id="importanceChart"></canvas></div>
+    </div>
+
+    <!-- Session Abandonment Rate Simulation -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon ci-red">📈</div>
+        <div>
+          <h3>Abandonment vs Price</h3>
+          <div style="font-size:.75rem;color:var(--muted)">Model-predicted trend (electronics.smartphone · samsung)</div>
+        </div>
+      </div>
+      <div class="chart-wrap" style="height:220px"><canvas id="priceChart"></canvas></div>
+    </div>
+  </div>
+
+  <div class="dash-grid">
+    <!-- Session depth chart -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon ci-cyan">🔄</div>
+        <div>
+          <h3>Session Depth vs Abandonment</h3>
+          <div style="font-size:.75rem;color:var(--muted)">Predicted abandon % at different total_events</div>
+        </div>
+      </div>
+      <div class="chart-wrap" style="height:180px"><canvas id="sessionChart"></canvas></div>
+    </div>
+
+    <!-- Class distribution -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon ci-green">🥧</div>
+        <div>
+          <h3>Training Data Distribution</h3>
+          <div style="font-size:.75rem;color:var(--muted)">Purchased vs Abandoned (cart events)</div>
+        </div>
+      </div>
+      <div class="chart-wrap" style="height:180px"><canvas id="distChart"></canvas></div>
+    </div>
+  </div>
+
+  <!-- Live prediction log -->
+  <div class="card" id="live-log-card" style="display:none">
+    <div class="card-header">
+      <div class="card-icon ci-red">⚡</div>
+      <h3>Live Prediction Log</h3>
+    </div>
+    <div id="live-log"></div>
+  </div>
+
+</div>
+</div>
+
+<!-- ═══════════════════════════════════════════ PREDICT ═══ -->
+<div class="page" id="page-predict">
+<div class="container">
+  <div style="padding:1.5rem 0 1rem">
+    <div class="hero-label">◈ Real-Time Inference</div>
+    <h2>Run a Prediction</h2>
+    <p style="color:var(--text2);font-size:.88rem;margin-top:.4rem">All inputs flow into the real Random Forest model. Encoders match the exact training pipeline.</p>
+  </div>
+
+  <div class="predict-layout">
+    <!-- FORM -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon ci-purple">⚙️</div>
+        <h3>Input Features</h3>
+      </div>
+
+      <div class="section-tag">Product Info</div>
+      <div class="field-grid">
+        <div class="field">
+          <label>Brand</label>
+          <select id="in-brand"></select>
+        </div>
+        <div class="field">
+          <label>Category Code</label>
+          <select id="in-category"></select>
+        </div>
+        <div class="field">
+          <label>Price ($)</label>
+          <input type="number" id="in-price" value="299" min="0" step="0.01">
+        </div>
+        <div class="field">
+          <label>Average Price ($)</label>
+          <input type="number" id="in-avg-price" value="299" min="0" step="0.01">
+        </div>
+        <div class="field">
+          <label>Max Price ($)</label>
+          <input type="number" id="in-max-price" value="350" min="0" step="0.01">
+        </div>
+        <div class="field">
+          <label>Min Price ($)</label>
+          <input type="number" id="in-min-price" value="250" min="0" step="0.01">
+        </div>
+      </div>
+
+      <div class="divider"></div>
+      <div class="section-tag">Session Behaviour</div>
+      <div class="field-grid three">
+        <div class="field">
+          <label>Total Events</label>
+          <input type="number" id="in-total-events" value="8" min="1">
+        </div>
+        <div class="field">
+          <label>View Count</label>
+          <input type="number" id="in-view-count" value="5" min="0">
+        </div>
+        <div class="field">
+          <label>Cart Count</label>
+          <input type="number" id="in-cart-count" value="2" min="1">
+        </div>
+        <div class="field">
+          <label>Unique Products</label>
+          <input type="number" id="in-unique-products" value="3" min="1">
+        </div>
+      </div>
+
+      <button class="btn-predict" id="predict-btn" onclick="runPredict()">
+        Run Prediction
+      </button>
+    </div>
+
+    <!-- RESULT PANEL -->
+    <div class="result-panel" id="result-panel">
+      <div style="font-family:'DM Mono',monospace;font-size:.68rem;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-bottom:1rem">
+        Prediction Result
+      </div>
+      <div class="result-placeholder" id="result-placeholder">
+        <div class="big-icon">🔮</div>
+        <p>Fill in the features and click <strong>Run Prediction</strong> to see the model's output.</p>
+      </div>
+      <div id="result-output" style="display:none">
+        <!-- Verdict -->
+        <div class="result-verdict" id="verdict-box">
+          <div class="verdict-icon" id="verdict-icon"></div>
+          <div class="verdict-label" id="verdict-label"></div>
+          <div class="verdict-sub" id="verdict-sub"></div>
+        </div>
+
+        <!-- Risk chip -->
+        <div style="margin-bottom:.9rem">
+          <span class="risk-chip" id="risk-chip"></span>
+        </div>
+
+        <!-- Probability boxes -->
+        <div class="prob-row">
+          <div class="prob-box">
+            <div class="prob-pct" id="prob-abandon" style="color:var(--danger)">—</div>
+            <div class="prob-lab">Abandon Probability</div>
+          </div>
+          <div class="prob-box">
+            <div class="prob-pct" id="prob-purchase" style="color:var(--safe)">—</div>
+            <div class="prob-lab">Purchase Probability</div>
+          </div>
+        </div>
+
+        <!-- Bar -->
+        <div class="prob-bar">
+          <div class="prob-bar-fill" id="prob-bar-fill" style="background:var(--danger)"></div>
+        </div>
+
+        <!-- Details -->
+        <div>
+          <div class="detail-row"><span class="dk">Brand</span><span class="dv" id="d-brand">—</span></div>
+          <div class="detail-row"><span class="dk">Category</span><span class="dv" id="d-cat">—</span></div>
+          <div class="detail-row"><span class="dk">Price</span><span class="dv" id="d-price">—</span></div>
+          <div class="detail-row"><span class="dk">Total Events</span><span class="dv" id="d-events">—</span></div>
+          <div class="detail-row"><span class="dk">Cart Count</span><span class="dv" id="d-cart">—</span></div>
+          <div class="detail-row"><span class="dk">Timestamp</span><span class="dv" id="d-ts">—</span></div>
+        </div>
+
+        <!-- Sensitivity chart -->
+        <div class="sensitivity-section">
+          <div class="sensitivity-title">Price Sensitivity (model-predicted)</div>
+          <div class="chart-wrap" style="height:130px"><canvas id="sensChart"></canvas></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- ═══════════════════════════════════════════ HISTORY ═══ -->
+<div class="page" id="page-history">
+<div class="container">
+  <div class="history-header">
+    <div>
+      <div class="hero-label">◈ Session Log</div>
+      <h2>Prediction History</h2>
+    </div>
+    <button class="btn-clear" onclick="clearHistory()">Clear All</button>
+  </div>
+
+  <div class="history-stats">
+    <div class="hist-stat">
+      <div class="hv" id="h-total">0</div>
+      <div class="hl">Total Predictions</div>
+    </div>
+    <div class="hist-stat">
+      <div class="hv dn" id="h-abandoned">0</div>
+      <div class="hl">Predicted Abandoned</div>
+    </div>
+    <div class="hist-stat">
+      <div class="hv up" id="h-purchased">0</div>
+      <div class="hl">Predicted Purchased</div>
+    </div>
+  </div>
+
+  <div class="history-charts">
+    <div class="card">
+      <div class="card-header"><div class="card-icon ci-red">📉</div><h3>Abandon Probability Over Time</h3></div>
+      <div class="chart-wrap" style="height:180px"><canvas id="histLineChart"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-header"><div class="card-icon ci-purple">🍩</div><h3>Outcome Distribution</h3></div>
+      <div class="chart-wrap" style="height:180px"><canvas id="histPieChart"></canvas></div>
+    </div>
+  </div>
+
+  <div class="history-table-wrap">
+    <div class="history-table-head">
+      <span>Time</span>
+      <span>Brand</span>
+      <span>Category</span>
+      <span>Price</span>
+      <span>Abandon %</span>
+      <span>Outcome</span>
+    </div>
+    <div class="history-rows" id="history-rows">
+      <div class="empty-history">No predictions yet. <a onclick="showPage('predict')" style="color:var(--accent);cursor:pointer">Run your first prediction →</a></div>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- ═══════════════════════════════════════════ ABOUT ═══ -->
+<div class="page" id="page-about">
+<div class="container">
+  <div class="about-hero">
+    <div class="hero-label">◈ Model Documentation</div>
+    <h1>How <em class="accent">CartSense</em><br>works</h1>
+    <p style="color:var(--text2);margin-top:.8rem;max-width:560px;font-size:.95rem;line-height:1.7">
+      CartSense uses a trained <strong>Random Forest Classifier</strong> to predict whether a cart event will lead to abandonment or purchase — in real time, using your actual <code style="background:var(--surface);padding:.1rem .4rem;border-radius:4px;font-size:.85em">.pkl</code> model files.
+    </p>
+  </div>
+
+  <!-- Pipeline -->
+  <h3 style="margin-bottom:1rem;color:var(--text2);font-size:.8rem;text-transform:uppercase;letter-spacing:.1em;font-family:'DM Mono',monospace">Data Pipeline</h3>
+  <div class="pipeline-row">
+    <div class="pipeline-step"><div class="ps-num">1</div>Raw e-commerce events (Oct–Nov 2019)</div>
+    <div class="pipeline-arrow">→</div>
+    <div class="pipeline-step"><div class="ps-num">2</div>Filter cart events · join session features</div>
+    <div class="pipeline-arrow">→</div>
+    <div class="pipeline-step"><div class="ps-num">3</div>Label encode brand & category</div>
+    <div class="pipeline-arrow">→</div>
+    <div class="pipeline-step"><div class="ps-num">4</div>RandomForest · 100 trees · depth 12</div>
+    <div class="pipeline-arrow">→</div>
+    <div class="pipeline-step"><div class="ps-num">5</div>Predict abandon probability</div>
+  </div>
+
+  <div class="about-grid">
+    <div class="feature-card">
+      <div class="fc-icon">🌲</div>
+      <h3>Random Forest Classifier</h3>
+      <p>100 decision trees with max depth 12, balanced class weights to handle the slight imbalance between abandoned (6,714) and purchased (8,244) samples. Trained on 80% / evaluated on 20% stratified split.</p>
+    </div>
+    <div class="feature-card">
+      <div class="fc-icon">🔢</div>
+      <h3>Label Encoders</h3>
+      <p>The exact <code style="background:var(--surface);padding:.1rem .3rem;border-radius:3px;font-size:.85em">brand_encoder.pkl</code> and <code style="background:var(--surface);padding:.1rem .3rem;border-radius:3px;font-size:.85em">category_encoder.pkl</code> from training are loaded at startup. 176 brands and 69 categories are faithfully encoded to match the training distribution.</p>
+    </div>
+    <div class="feature-card">
+      <div class="fc-icon">⚡</div>
+      <h3>Real-time Inference</h3>
+      <p>Every prediction is a live call to the Flask backend, which loads the model once at startup and keeps it in memory. Typical inference time is under 5 ms per request.</p>
+    </div>
+    <div class="feature-card">
+      <div class="fc-icon">📊</div>
+      <h3>Dataset</h3>
+      <p>Kaggle dataset "ecommerce-behavior-data-from-multi-category-store" — 1 million rows sampled from Nov 2019. Cart events were extracted and session-level features aggregated to form the training set of ~15k records.</p>
+    </div>
+  </div>
+
+  <!-- Feature importances -->
+  <div class="card" style="margin-bottom:1.5rem">
+    <div class="card-header">
+      <div class="card-icon ci-purple">📐</div>
+      <h3>Feature Importances (from trained model)</h3>
+    </div>
+    <div class="feat-importance-grid" id="importance-list"></div>
+  </div>
+
+  <!-- Model stats -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-icon ci-green">🎯</div>
+      <h3>Model Performance</h3>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:1rem">
+      <div style="text-align:center;padding:.8rem">
+        <div style="font-family:'Syne',sans-serif;font-size:1.8rem;font-weight:700;color:var(--accent2)">79.4%</div>
+        <div style="font-size:.75rem;color:var(--muted);margin-top:.2rem">Accuracy</div>
+      </div>
+      <div style="text-align:center;padding:.8rem">
+        <div style="font-family:'Syne',sans-serif;font-size:1.8rem;font-weight:700;color:var(--accent3)">0.871</div>
+        <div style="font-size:.75rem;color:var(--muted);margin-top:.2rem">ROC-AUC</div>
+      </div>
+      <div style="text-align:center;padding:.8rem">
+        <div style="font-family:'Syne',sans-serif;font-size:1.8rem;font-weight:700;color:var(--safe)">100</div>
+        <div style="font-size:.75rem;color:var(--muted);margin-top:.2rem">Estimators</div>
+      </div>
+      <div style="text-align:center;padding:.8rem">
+        <div style="font-family:'Syne',sans-serif;font-size:1.8rem;font-weight:700;color:var(--accent)">12</div>
+        <div style="font-size:.75rem;color:var(--muted);margin-top:.2rem">Max Depth</div>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- ═════════════════════════════════ SCRIPTS ═════════════════════════════════ -->
+<script>
+// ── State ──────────────────────────────────────────────────────────────────
+let meta = null;
+let histLineChart = null, histPieChart = null, sensChart = null;
+let importanceChart = null, priceChart = null, sessionChart = null, distChart = null;
+
+// ── Page navigation ────────────────────────────────────────────────────────
+function showPage(id) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-link').forEach(b => b.classList.remove('active'));
+  document.getElementById('page-' + id).classList.add('active');
+  document.querySelectorAll('.nav-link').forEach(b => {
+    if (b.textContent.toLowerCase() === id) b.classList.add('active');
+  });
+  if (id === 'history') refreshHistory();
+}
+
+// ── Fetch meta (brands, categories, importances) ──────────────────────────
+async function loadMeta() {
+  const r = await fetch('/api/meta');
+  meta = await r.json();
+
+  // Populate brand select
+  const bs = document.getElementById('in-brand');
+  meta.brands.forEach(b => {
+    const o = document.createElement('option');
+    o.value = b; o.textContent = b;
+    if (b === 'samsung') o.selected = true;
+    bs.appendChild(o);
+  });
+
+  // Populate category select
+  const cs = document.getElementById('in-category');
+  meta.categories.forEach(c => {
+    const o = document.createElement('option');
+    o.value = c; o.textContent = c;
+    if (c === 'electronics.smartphone') o.selected = true;
+    cs.appendChild(o);
+  });
+
+  buildDashboardCharts();
+  buildAboutImportances();
+  loadPriceSensitivityDefault();
+}
+
+// ── Chart defaults ─────────────────────────────────────────────────────────
+Chart.defaults.color = '#606080';
+Chart.defaults.borderColor = '#252535';
+Chart.defaults.font.family = "'DM Mono', monospace";
+Chart.defaults.font.size = 11;
+
+function chartBase(extra={}) {
+  return {
+    responsive: true,
+    maintainAspectRatio: false,
+    resizeDelay: 0,
+    plugins: { legend: { display: false }, tooltip: { backgroundColor: '#1a1a28', borderColor: '#252535', borderWidth: 1, titleColor: '#e8e8f4', bodyColor: '#a0a0c0', padding: 10 } },
+    animation: { duration: 400 },
+    ...extra
+  };
+}
+
+// ── Dashboard charts ───────────────────────────────────────────────────────
+function buildDashboardCharts() {
+  const names  = ['price','brand','category','total_events','view_count','cart_count','unique_products','avg_price','max_price','min_price'];
+  const labels = ['Price','Brand','Category','Total Events','View Count','Cart Count','Unique Prods','Avg Price','Max Price','Min Price'];
+  const imps   = meta.feature_importances.map(v => (v*100).toFixed(1));
+  const colors = imps.map(v => v > 15 ? '#8b5cf6' : v > 8 ? '#f43f5e' : '#06b6d4');
+
+  // Feature Importance (horizontal bar)
+  importanceChart = new Chart(document.getElementById('importanceChart'), {
+    type: 'bar',
+    data: { labels, datasets: [{ data: imps, backgroundColor: colors, borderRadius: 5, borderWidth: 0 }] },
+    options: { ...chartBase(), indexAxis: 'y', scales: { x: { grid: { color: '#1e1e2e' }, ticks: { callback: v => v+'%' } }, y: { grid: { display:false } } }, plugins: { ...chartBase().plugins, tooltip: { ...chartBase().plugins.tooltip, callbacks: { label: ctx => ' ' + ctx.raw + '%' } } } }
+  });
+
+  // Price vs Abandonment — loaded after
+  // Session depth chart
+  buildSessionChart();
+  buildDistChart();
+}
+
+async function loadPriceSensitivityDefault() {
+  // Use samsung / electronics.smartphone as demo
+  const r = await fetch('/api/batch_predict', {
+    method: 'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ brand:'samsung', category_code:'electronics.smartphone', price:300, total_events:8, view_count:5, cart_count:2, unique_products:3 })
+  });
+  const pts = await r.json();
+  priceChart = new Chart(document.getElementById('priceChart'), {
+    type: 'line',
+    data: {
+      labels: pts.map(p => '$' + p.price),
+      datasets: [{
+        data: pts.map(p => p.abandon_prob),
+        borderColor: '#f43f5e', backgroundColor: 'rgba(244,63,94,.1)',
+        fill: true, tension: 0.4, pointRadius: 5,
+        pointBackgroundColor: '#f43f5e', borderWidth: 2
+      }]
+    },
+    options: { ...chartBase(), scales: { x:{ grid:{color:'#1e1e2e'} }, y:{ grid:{color:'#1e1e2e'}, ticks:{ callback: v=>v+'%' }, min:0, max:100 } }, plugins: { ...chartBase().plugins, tooltip: { ...chartBase().plugins.tooltip, callbacks:{ label: ctx=>' Abandon: '+ctx.raw+'%' } } } }
+  });
+}
+
+async function buildSessionChart() {
+  // vary total_events 1..20 for samsung smartphone $300
+  const results = [];
+  const reqs = [1,2,3,5,7,10,12,15,18,20].map(async ev => {
+    const r = await fetch('/api/predict', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ brand:'samsung', category_code:'electronics.smartphone', price:300, total_events:ev, view_count:Math.max(1,ev-2), cart_count:2, unique_products:2, avg_price:300, max_price:320, min_price:280 })
+    });
+    const d = await r.json();
+    return { events: ev, prob: d.abandon_probability };
+  });
+  const pts = await Promise.all(reqs);
+  pts.sort((a,b)=>a.events-b.events);
+
+  sessionChart = new Chart(document.getElementById('sessionChart'), {
+    type:'line',
+    data: {
+      labels: pts.map(p => p.events + ' events'),
+      datasets:[{ data: pts.map(p=>p.prob), borderColor:'#06b6d4', backgroundColor:'rgba(6,182,212,.08)', fill:true, tension:0.4, pointRadius:4, pointBackgroundColor:'#06b6d4', borderWidth:2 }]
+    },
+    options:{ ...chartBase(), scales:{ x:{grid:{color:'#1e1e2e'}}, y:{grid:{color:'#1e1e2e'}, ticks:{callback:v=>v+'%'}, min:0, max:100} }, plugins:{...chartBase().plugins, tooltip:{...chartBase().plugins.tooltip, callbacks:{label:ctx=>' Abandon: '+ctx.raw+'%'}}} }
+  });
+}
+
+function buildDistChart() {
+  distChart = new Chart(document.getElementById('distChart'), {
+    type: 'doughnut',
+    data: {
+      labels: ['Purchased (8,244)', 'Abandoned (6,714)'],
+      datasets:[{ data:[8244,6714], backgroundColor:['rgba(16,185,129,.7)','rgba(244,63,94,.7)'], borderColor:['#10b981','#f43f5e'], borderWidth:2, hoverOffset:6 }]
+    },
+    options: { ...chartBase(), plugins:{ legend:{ display:true, position:'bottom', labels:{ color:'#a0a0c0', boxWidth:12, font:{size:11} } }, tooltip:{...chartBase().plugins.tooltip, callbacks:{label:ctx=>' '+ctx.label}} } }
+  });
+}
+
+// ── Predict ────────────────────────────────────────────────────────────────
+async function runPredict() {
+  const btn = document.getElementById('predict-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Running...';
+
+  const payload = {
+    brand:           document.getElementById('in-brand').value,
+    category_code:   document.getElementById('in-category').value,
+    price:           parseFloat(document.getElementById('in-price').value),
+    total_events:    parseInt(document.getElementById('in-total-events').value),
+    view_count:      parseInt(document.getElementById('in-view-count').value),
+    cart_count:      parseInt(document.getElementById('in-cart-count').value),
+    unique_products: parseInt(document.getElementById('in-unique-products').value),
+    avg_price:       parseFloat(document.getElementById('in-avg-price').value),
+    max_price:       parseFloat(document.getElementById('in-max-price').value),
+    min_price:       parseFloat(document.getElementById('in-min-price').value),
+  };
+
+  try {
+    const r = await fetch('/api/predict', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+    const d = await r.json();
+    showResult(d, payload);
+    updateDashboardLive(d);
+    fetchSensitivity(payload);
+  } catch(e) {
+    showToast('❌ Prediction failed: ' + e.message);
+  }
+
+  btn.disabled = false;
+  btn.textContent = 'Run Prediction';
+}
+
+function showResult(d, payload) {
+  document.getElementById('result-placeholder').style.display = 'none';
+  document.getElementById('result-output').style.display = 'block';
+
+  const abandoned = d.abandoned;
+  const vBox  = document.getElementById('verdict-box');
+  vBox.className = 'result-verdict ' + (abandoned ? 'abandoned' : 'purchased');
+  document.getElementById('verdict-icon').textContent = abandoned ? '🚪' : '🛍️';
+  document.getElementById('verdict-label').textContent = abandoned ? 'Will Abandon Cart' : 'Will Purchase';
+  document.getElementById('verdict-label').style.color = abandoned ? 'var(--danger)' : 'var(--safe)';
+  document.getElementById('verdict-sub').textContent = abandoned ? 'High risk of not converting' : 'Likely to complete checkout';
+
+  const risk = document.getElementById('risk-chip');
+  risk.textContent = '● ' + d.risk_level + ' RISK';
+  risk.className = 'risk-chip risk-' + d.risk_level;
+
+  document.getElementById('prob-abandon').textContent  = d.abandon_probability + '%';
+  document.getElementById('prob-purchase').textContent = d.purchase_probability + '%';
+
+  const fill = document.getElementById('prob-bar-fill');
+  fill.style.width = d.abandon_probability + '%';
+  fill.style.background = d.abandon_probability >= 65 ? 'var(--danger)' : d.abandon_probability >= 40 ? 'var(--warn)' : 'var(--safe)';
+
+  document.getElementById('d-brand').textContent  = d.input.brand;
+  document.getElementById('d-cat').textContent    = d.input.category.split('.').slice(-1)[0];
+  document.getElementById('d-price').textContent  = '$' + d.input.price;
+  document.getElementById('d-events').textContent = d.input.total_events;
+  document.getElementById('d-cart').textContent   = d.input.cart_count;
+  document.getElementById('d-ts').textContent     = d.timestamp;
+}
+
+async function fetchSensitivity(payload) {
+  const r = await fetch('/api/batch_predict', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+  const pts = await r.json();
+
+  if (sensChart) sensChart.destroy();
+  sensChart = new Chart(document.getElementById('sensChart'), {
+    type:'line',
+    data:{
+      labels: pts.map(p=>'$'+p.price),
+      datasets:[{ data:pts.map(p=>p.abandon_prob), borderColor:'#8b5cf6', backgroundColor:'rgba(139,92,246,.08)', fill:true, tension:0.4, pointRadius:4, pointBackgroundColor:'#8b5cf6', borderWidth:2 }]
+    },
+    options:{ ...chartBase(), scales:{ x:{grid:{color:'#1e1e2e'},ticks:{font:{size:9}}}, y:{grid:{color:'#1e1e2e'}, ticks:{callback:v=>v+'%',font:{size:9}}, min:0, max:100} }, plugins:{...chartBase().plugins,tooltip:{...chartBase().plugins.tooltip,callbacks:{label:ctx=>' '+ctx.raw+'%'}}} }
+  });
+}
+
+// ── History ────────────────────────────────────────────────────────────────
+async function refreshHistory() {
+  const r = await fetch('/api/history');
+  const data = await r.json();
+
+  const total     = data.length;
+  const abandoned = data.filter(d=>d.abandoned).length;
+  const purchased = total - abandoned;
+
+  document.getElementById('h-total').textContent     = total;
+  document.getElementById('h-abandoned').textContent = abandoned;
+  document.getElementById('h-purchased').textContent = purchased;
+  document.getElementById('total-preds').textContent = total;
+
+  // Rows
+  const rows = document.getElementById('history-rows');
+  if (total === 0) {
+    rows.innerHTML = '<div class="empty-history">No predictions yet. <a onclick="showPage(\'predict\')" style="color:var(--accent);cursor:pointer">Run your first prediction →</a></div>';
+  } else {
+    rows.innerHTML = [...data].reverse().map(d => `
+      <div class="history-row">
+        <span class="h-time">${d.timestamp}</span>
+        <span class="h-brand">${d.input.brand}</span>
+        <span class="h-cat">${d.input.category}</span>
+        <span class="h-price">$${d.input.price}</span>
+        <span class="h-prob" style="color:${d.abandon_probability>=65?'var(--danger)':d.abandon_probability>=40?'var(--warn)':'var(--safe)'}">${d.abandon_probability}%</span>
+        <span><span class="badge ${d.abandoned?'badge-danger':'badge-safe'}">${d.abandoned?'ABANDON':'PURCHASE'}</span></span>
+      </div>
+    `).join('');
+  }
+
+  // Line chart
+  if (histLineChart) histLineChart.destroy();
+  if (histPieChart) histPieChart.destroy();
+
+  if (total > 0) {
+    histLineChart = new Chart(document.getElementById('histLineChart'), {
+      type:'line',
+      data:{
+        labels: data.map((_,i) => '#'+(i+1)),
+        datasets:[{ data: data.map(d=>d.abandon_probability), borderColor:'#f43f5e', backgroundColor:'rgba(244,63,94,.08)', fill:true, tension:0.4, pointRadius:3, pointBackgroundColor:'#f43f5e', borderWidth:2 }]
+      },
+      options:{ ...chartBase(), scales:{ x:{grid:{color:'#1e1e2e'}}, y:{grid:{color:'#1e1e2e'}, ticks:{callback:v=>v+'%'}, min:0, max:100} }, plugins:{...chartBase().plugins,tooltip:{...chartBase().plugins.tooltip, callbacks:{label:ctx=>' Abandon: '+ctx.raw+'%'}}} }
+    });
+
+    histPieChart = new Chart(document.getElementById('histPieChart'), {
+      type:'doughnut',
+      data:{
+        labels:['Purchased','Abandoned'],
+        datasets:[{ data:[purchased,abandoned], backgroundColor:['rgba(16,185,129,.7)','rgba(244,63,94,.7)'], borderColor:['#10b981','#f43f5e'], borderWidth:2, hoverOffset:6 }]
+      },
+      options:{ ...chartBase(), plugins:{ legend:{display:true,position:'bottom',labels:{color:'#a0a0c0',boxWidth:12,font:{size:11}}}, tooltip:{...chartBase().plugins.tooltip} } }
+    });
+  }
+}
+
+function clearHistory() {
+  fetch('/api/history').then(()=>{});
+  // reset via reload (history is server-side in-memory)
+  location.reload();
+}
+
+// ── About importances ──────────────────────────────────────────────────────
+function buildAboutImportances() {
+  const names = ['Price','Brand','Category Code','Total Events','View Count','Cart Count','Unique Products','Avg Price','Max Price','Min Price'];
+  const imps  = meta.feature_importances;
+  const max   = Math.max(...imps);
+  const list  = document.getElementById('importance-list');
+  list.innerHTML = names.map((n,i) => `
+    <div class="fi-row">
+      <span class="fi-name">${n}</span>
+      <div class="fi-bar-wrap"><div class="fi-bar" style="width:${(imps[i]/max*100).toFixed(0)}%"></div></div>
+      <span class="fi-pct">${(imps[i]*100).toFixed(1)}%</span>
+    </div>
+  `).join('');
+}
+
+// ── Live log on dashboard ──────────────────────────────────────────────────
+function updateDashboardLive(d) {
+  const card = document.getElementById('live-log-card');
+  card.style.display = 'block';
+  const log = document.getElementById('live-log');
+  const entry = document.createElement('div');
+  entry.style.cssText = 'display:flex;align-items:center;gap:1rem;padding:.5rem .8rem;border-radius:7px;margin-bottom:.4rem;background:var(--surface);font-size:.8rem;animation:fadeUp .3s ease';
+  entry.innerHTML = `
+    <span style="font-family:'DM Mono',monospace;color:var(--muted);font-size:.7rem">${d.timestamp}</span>
+    <span style="flex:1"><strong>${d.input.brand}</strong> · ${d.input.category.split('.').pop()} · $${d.input.price}</span>
+    <span style="font-family:'DM Mono',monospace;color:${d.abandoned?'var(--danger)':'var(--safe)'}">
+      ${d.abandon_probability}% ${d.abandoned?'↑ abandon':'↓ purchase'}
+    </span>
+  `;
+  log.prepend(entry);
+  // Keep max 6 entries
+  while (log.children.length > 6) log.removeChild(log.lastChild);
+}
+
+// ── Toast ──────────────────────────────────────────────────────────────────
+function showToast(msg) {
+  const t = document.createElement('div');
+  t.className = 'toast'; t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 3000);
+}
+
+// ── Init ───────────────────────────────────────────────────────────────────
+loadMeta();
+</script>
+</body>
+</html>
