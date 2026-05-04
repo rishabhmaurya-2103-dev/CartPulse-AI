@@ -138,9 +138,9 @@ The model was trained in Google Colab using the Kaggle dataset. The pipeline:
 
 ## 👤 Author
 
-Made by **[Your Name]**  
-📧 your@email.com  
-🔗 [LinkedIn](https://linkedin.com) · [Kaggle](https://kaggle.com)
+Made by **Rishabh Maurya**  
+📧 rishabhmaurya2103@gmail.com  
+🔗 [LinkedIn](https://www.linkedin.com/in/rishabh-maurya-a33754374/) · [Kaggle](https://kaggle.com)
 
 ---
 
